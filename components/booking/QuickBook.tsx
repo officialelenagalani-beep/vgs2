@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { useKeyedLoad, getJson } from "@/lib/use-keyed-load";
 import { isoDate as localISODate } from "@/lib/analytics-ranges";
 import { isPlainEmailAddress } from "@/lib/notifications/email-templates";
@@ -43,7 +42,6 @@ export type QuickBookProps = {
 };
 
 const ANY = "any";
-const ease = [0.16, 1, 0.3, 1] as const;
 
 // Theme tokens (set by the page).
 const C = {
@@ -279,17 +277,12 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
   if (done && service && date && time) {
     const who = chosenBarber?.name ?? team.find((m) => m.id === done.employee_id)?.name ?? null;
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.7, ease }}
-        className={`rounded-[32px] border ${C.line} ${C.card} p-7 text-center sm:p-12`}
+      <div
+        className={`qb-up rounded-[32px] border ${C.line} ${C.card} p-7 text-center sm:p-12`}
       >
         <svg viewBox="0 0 64 64" className="mx-auto h-20 w-20" aria-hidden="true">
-          <motion.circle cx="32" cy="32" r="29" fill="none" stroke="var(--qb-accent)" strokeWidth="3"
-            initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.7, ease }} />
-          <motion.path d="M20 33l8 8 16-17" fill="none" stroke="var(--qb-accent)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
-            initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.45, delay: 0.55, ease }} />
+          <circle className="qb-draw" cx="32" cy="32" r="29" fill="none" stroke="var(--qb-accent)" strokeWidth="3" pathLength={1} />
+          <path className="qb-draw" style={{ animationDelay: "550ms" }} d="M20 33l8 8 16-17" fill="none" stroke="var(--qb-accent)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
         </svg>
         <h2 className={`mt-6 text-[30px] font-semibold leading-tight tracking-tight sm:text-[38px] ${C.ink}`}>Το ραντεβού κλείστηκε!</h2>
         <p className={`mt-2 ${C.muted}`}>Σε περιμένουμε στο {shopName}.</p>
@@ -301,24 +294,24 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
             ["Ώρα", time],
             ["Κόστος", euro(paidPrice({ service_price: done.service_price ?? service.price, discount_amount: done.discount_amount }))],
           ].map(([k, v], i) => (
-            <motion.div key={k} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.7 + i * 0.07, ease }}
-              className="flex justify-between gap-4 px-5 py-3.5">
+            <div key={k} style={{ animationDelay: `${700 + i * 70}ms` }}
+              className="qb-up flex justify-between gap-4 px-5 py-3.5">
               <dt className={C.muted}>{k}</dt>
               <dd className={`text-right font-medium ${C.ink}`}>{v}</dd>
-            </motion.div>
+            </div>
           ))}
         </dl>
         <button type="button" onClick={restart} className={`mt-8 rounded-full px-7 py-3.5 text-[15px] font-semibold transition hover:opacity-90 ${C.accentBg}`}>
           Νέο ραντεβού
         </button>
-      </motion.div>
+      </div>
     );
   }
 
   // ── The steps ─────────────────────────────────────────────────────────
   const progress = ((step - 1) / (STEPS.length - 1)) * 100;
   return (
-    <div className={`overflow-hidden rounded-[32px] border ${C.line} ${C.card}`}>
+    <div className={`w-full min-w-0 max-w-full overflow-hidden rounded-[32px] border ${C.line} ${C.card}`}>
       {/* Step rail */}
       <div className={`border-b ${C.line} px-5 pb-4 pt-5 sm:px-8`}>
         <div className="flex items-center justify-between gap-3">
@@ -331,8 +324,8 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
           </p>
         </div>
         <div className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-[color:var(--qb-line)]">
-          <motion.div className="absolute inset-y-0 left-0 rounded-full bg-[color:var(--qb-accent)]"
-            initial={false} animate={{ width: `${Math.max(progress, 6)}%` }} transition={{ duration: 0.6, ease }} />
+          <div className="absolute inset-y-0 left-0 rounded-full bg-[color:var(--qb-accent)] transition-[width] duration-700 ease-out"
+            style={{ width: `${Math.max(progress, 6)}%` }} />
         </div>
         <ol className="mt-3 hidden grid-cols-4 text-xs sm:grid">
           {STEPS.map((label, i) => (
@@ -342,20 +335,10 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
       </div>
 
       <div className="relative min-h-[420px] px-5 py-7 sm:px-8 sm:py-9">
-        <AnimatePresence mode="wait" custom={dir} initial={false}>
-          <motion.div
-            key={step}
-            custom={dir}
-            variants={{
-              enter: (d: number) => ({ opacity: 0, x: d * 48, filter: "blur(6px)" }),
-              center: { opacity: 1, x: 0, filter: "blur(0px)" },
-              exit: (d: number) => ({ opacity: 0, x: d * -48, filter: "blur(6px)" }),
-            }}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.42, ease }}
-          >
+        {/* Each step slides in from the side it comes from. No exit animation:
+            the next step appears at once (waiting for the old one to leave
+            could leave the panel empty on some phones/browsers). */}
+        <div key={step} className={dir > 0 ? "qb-in-right" : "qb-in-left"}>
             {step === 1 && (
               <StepServices state={catalogState} categories={categories} selected={service?.id ?? null} onPick={pickService} />
             )}
@@ -375,7 +358,7 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
                           aria-label={`${longDay(d)}${open ? "" : " (κλειστά)"}`}
                           onClick={() => { if (!active) { setDate(d); setTime(null); } }}
                           className={`relative w-[68px] shrink-0 snap-start rounded-2xl border px-2 py-3 text-center transition ${C.line} disabled:opacity-35 ${active ? "" : "hover:-translate-y-0.5 hover:border-[color:var(--qb-accent)]"}`}>
-                          {active && <motion.span layoutId="qb-day" className="absolute inset-0 rounded-2xl bg-[color:var(--qb-accent)]" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
+                          {active && <span className="qb-pop absolute inset-0 rounded-2xl bg-[color:var(--qb-accent)]" />}
                           <span className={`relative block text-[11px] font-medium uppercase tracking-wide ${active ? "text-[color:var(--qb-on-accent)]" : C.muted}`}>{dayLabel(d)}</span>
                           <span className={`relative mt-1 block text-[22px] font-semibold leading-none ${active ? "text-[color:var(--qb-on-accent)]" : C.ink}`}>{d.getDate()}</span>
                           <span className={`relative mt-1 block text-[11px] ${active ? "text-[color:var(--qb-on-accent)] opacity-80" : C.muted}`}>{d.toLocaleDateString("el-GR", { month: "short" }).replace(".", "")}</span>
@@ -408,17 +391,15 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
                       {parts.map((part) => (
                         <div key={part.key}>
                           <p className={`mb-2.5 text-xs font-semibold uppercase tracking-[0.14em] ${C.muted}`}>{part.label}</p>
-                          <motion.div className="grid grid-cols-4 gap-2.5 sm:grid-cols-6" initial="hidden" animate="show"
-                            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.025 } } }}>
-                            {part.slots.map((s) => (
-                              <motion.button key={s} type="button" onClick={() => pickTime(s)} aria-pressed={time === s}
-                                variants={{ hidden: { opacity: 0, y: 8, scale: 0.94 }, show: { opacity: 1, y: 0, scale: 1 } }}
-                                whileTap={{ scale: 0.94 }}
-                                className={`h-12 rounded-2xl border text-[15px] font-semibold tabular-nums transition ${time === s ? `${C.accentBg} border-transparent` : `${C.line} ${C.ink} hover:border-[color:var(--qb-accent)] hover:bg-[color:var(--qb-ring)]`}`}>
+                          <div className="grid grid-cols-4 gap-2.5 sm:grid-cols-6">
+                            {part.slots.map((s, si) => (
+                              <button key={s} type="button" onClick={() => pickTime(s)} aria-pressed={time === s}
+                                style={{ animationDelay: `${si * 25}ms` }}
+                                className={`qb-up h-12 active:scale-95 rounded-2xl border text-[15px] font-semibold tabular-nums transition ${time === s ? `${C.accentBg} border-transparent` : `${C.line} ${C.ink} hover:border-[color:var(--qb-accent)] hover:bg-[color:var(--qb-ring)]`}`}>
                                 {s}
-                              </motion.button>
+                              </button>
                             ))}
-                          </motion.div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -488,14 +469,13 @@ export default function QuickBook({ slug, shopName, closedWeekdays, discounts = 
 
                 {submitError && <p role="alert" className="mt-4 text-sm text-red-500">{submitError}</p>}
 
-                <motion.button type="submit" disabled={submitting} whileTap={{ scale: 0.98 }}
+                <button type="submit" disabled={submitting}
                   className={`group mt-6 flex w-full items-center justify-center gap-2 rounded-full py-4 text-[16px] font-semibold transition hover:opacity-95 disabled:opacity-60 ${C.accentBg}`}>
                   {submitting ? "Κλείνουμε το ραντεβού…" : <>Κλείσε το ραντεβού <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span></>}
-                </motion.button>
+                </button>
               </form>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
       </div>
     </div>
   );
@@ -546,12 +526,11 @@ function StepServices({ state, categories, selected, onPick }: {
       {state === "ready" && categories.map((cat, ci) => (
         <div key={cat.id} className="mt-7 first-of-type:mt-6">
           {categories.length > 1 && <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.14em] ${C.muted}`}>{cat.label}</p>}
-          <motion.ul className="grid gap-3 sm:grid-cols-2" initial="hidden" animate="show"
-            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: ci * 0.08 } } }}>
-            {cat.services.map((s) => {
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {cat.services.map((s, si) => {
               const active = selected === s.id;
               return (
-                <motion.li key={s.id} variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease } } }}>
+                <li key={s.id} className="qb-up" style={{ animationDelay: `${ci * 80 + si * 50}ms` }}>
                   <button type="button" onClick={() => onPick(s)} aria-pressed={active}
                     className={`group relative flex w-full items-center justify-between gap-4 overflow-hidden rounded-3xl border px-5 py-5 text-left transition duration-300 hover:-translate-y-0.5 hover:border-[color:var(--qb-accent)] hover:shadow-[0_18px_40px_-24px_var(--qb-shadow)] ${active ? "border-[color:var(--qb-accent)]" : C.line}`}>
                     <span className="absolute inset-y-0 left-0 w-1 origin-top scale-y-0 bg-[color:var(--qb-accent)] transition-transform duration-300 group-hover:scale-y-100" aria-hidden="true" />
@@ -564,10 +543,10 @@ function StepServices({ state, categories, selected, onPick }: {
                       <span aria-hidden="true" className={`flex h-9 w-9 items-center justify-center rounded-full border transition duration-300 group-hover:translate-x-0.5 group-hover:border-transparent group-hover:bg-[color:var(--qb-accent)] group-hover:text-[color:var(--qb-on-accent)] ${C.line} ${C.ink}`}>→</span>
                     </span>
                   </button>
-                </motion.li>
+                </li>
               );
             })}
-          </motion.ul>
+          </ul>
         </div>
       ))}
     </section>
@@ -582,14 +561,13 @@ function StepBarbers({ service, barbers, selected, onPick, photos }: {
   return (
     <section aria-labelledby="qb-who">
       <Heading id="qb-who" title="Με ποιον κουρέα;" sub={`Για «${service.name}».`} />
-      <motion.ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3" initial="hidden" animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}>
+      <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {options.map((b, i) => {
           const any = b.id === ANY;
           const active = selected === b.id;
           return (
-            <motion.li key={b.id} variants={{ hidden: { opacity: 0, y: 16, scale: 0.96 }, show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease } } }}
-              className={any ? "col-span-2 sm:col-span-1" : ""}>
+            <li key={b.id} style={{ animationDelay: `${i * 60}ms` }}
+              className={`qb-up ${any ? "col-span-2 sm:col-span-1" : ""}`}>
               <button type="button" onClick={() => onPick(b.id)} aria-pressed={active}
                 className={`group flex h-full w-full flex-col items-center gap-3 rounded-3xl border px-4 py-6 text-center transition duration-300 hover:-translate-y-1 hover:border-[color:var(--qb-accent)] hover:shadow-[0_22px_44px_-26px_var(--qb-shadow)] ${active ? "border-[color:var(--qb-accent)]" : C.line}`}>
                 <span className="relative flex h-24 w-24 items-center justify-center">
@@ -605,10 +583,10 @@ function StepBarbers({ service, barbers, selected, onPick, photos }: {
                 <span className={`text-[16px] font-semibold leading-snug ${C.ink}`}>{b.name}</span>
                 <span className={`text-xs ${C.muted}`}>{any ? "Η πιο γρήγορη διαθέσιμη ώρα" : "Δες τις ώρες του"}</span>
               </button>
-            </motion.li>
+            </li>
           );
         })}
-      </motion.ul>
+      </ul>
     </section>
   );
 }
